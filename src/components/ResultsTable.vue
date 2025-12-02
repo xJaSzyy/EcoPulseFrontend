@@ -38,8 +38,8 @@
           <td class="code-cell">{{ item.pollutantInfo.code }}</td>
           <td v-if="hasGrossEmission" class="emission-value">{{ item.grossEmission?.toFixed(6) || '—' }}</td>
           <td class="emission-value">{{ item.maximumEmission?.toFixed(6) || '—' }}</td>
-          <td class="concentration-value" :class="getConcentrationClass(item)">
-            <div>{{ item.pollutantInfo.maxPermissibleConcentration }}</div>
+          <td v-if="item.pollutantInfo.maxPermissibleConcentration" class="concentration-value" :class="getConcentrationClass(item)">
+            <div v-if="item.pollutantInfo.maxPermissibleConcentration">{{ item.pollutantInfo.maxPermissibleConcentration }}</div>
             <div v-if="item.pollutantInfo.dailyAverageConcentration" class="concentration-daily">
               (среднесуточная: {{ item.pollutantInfo.dailyAverageConcentration }})
             </div>

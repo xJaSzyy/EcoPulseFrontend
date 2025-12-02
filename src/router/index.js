@@ -40,6 +40,11 @@ const routes = [
     path: '/traffic-light-queue',
     name: 'traffic-light-queue',
     component: () => import('../views/TrafficLightQueue.vue')
+  },
+  {
+    path: '/open-coal-warehouse',
+    name: 'open-coal-warehouse',
+    component: () => import('../views/OpenCoalWarehouse.vue')
   }
 ]
 
