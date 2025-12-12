@@ -62,23 +62,66 @@ const layersState = reactive({
   vehicleQueues: { visible: false }
 })
 
+function createEllipse() {
+  const dangerZone = {
+    lon: 86.0833,
+    lat: 55.3333,
+    length: 1000,
+    width: 500,
+    angle: 0, // windDirection
+    color: 'rgba(164, 125, 184, 0.6)'
+  }
+
+  const semiMajor = dangerZone.length;
+  const semiMinor = dangerZone.width;
+
+  const center = fromLonLat([dangerZone.lon, dangerZone.lat]);
+
+  const angle = 0.5 * Math.PI - (dangerZone.angle * Math.PI) / 180;
+
+  const points = [];
+
+  const offsetX = (semiMajor / 1.25) * Math.cos(angle);
+  const offsetY = (semiMajor / 1.25) * Math.sin(angle);
+  const shiftedCenter = [center[0] + offsetX, center[1] + offsetY];
+
+  for (let i = 360; i >= 0; i -= 15) {
+    const theta = (i * Math.PI) / 180;
+    const x = semiMajor * Math.cos(theta);
+    const y = semiMinor * Math.sin(theta);
+
+    const rotatedX = x * Math.cos(angle) - y * Math.sin(angle);
+    const rotatedY = x * Math.sin(angle) + y * Math.cos(angle);
+
+    points.push([shiftedCenter[0] + rotatedX, shiftedCenter[1] + rotatedY]);
+  }
+  points.push(points[0]);
+
+  const ellipseFeature = new Feature({
+    geometry: new Polygon([points]),
+  });
+
+  ellipseFeature.setStyle(
+      new Style({
+        fill: new Fill({
+          color: dangerZone.color,
+        }),
+      })
+  );
+
+  return ellipseFeature;
+}
+
 function createLayers() {
   const singlesSource = new VectorSource()
-  const singlesFeature = new Feature({
-    geometry: new Point(fromLonLat([86.0833, 55.3333]))
-  })
-  singlesSource.addFeature(singlesFeature)
+  const ellipse1 = createEllipse();
+  singlesSource.addFeature(ellipse1);
 
   const singlesLayer = new VectorLayer({
     source: singlesSource,
-    visible: true,
-    style: new Style({
-      image: new CircleStyle({
-        radius: 6,
-        fill: new Fill({ color: 'red' })
-      })
-    })
-  })
+    visible: true
+  });
+
 
   const vehicleFlowsSource = new VectorSource()
   const vehicleFlowsFeature = new Feature({
