@@ -33,22 +33,23 @@
 </template>
 
 <script setup>
-import { onMounted, ref, reactive } from 'vue'
+import {onMounted, reactive, ref} from 'vue'
 import 'ol/ol.css'
 import Map from 'ol/Map'
-import { fromLonLat } from 'ol/proj'
+import {fromLonLat} from 'ol/proj'
 import View from 'ol/View'
 import TileLayer from 'ol/layer/Tile'
 import OSM from 'ol/source/OSM'
 
 import VectorLayer from 'ol/layer/Vector'
 import VectorSource from 'ol/source/Vector'
-import { Point, Polygon } from 'ol/geom'
+import {Point, Polygon} from 'ol/geom'
 import Feature from 'ol/Feature'
-import { Style, Circle as CircleStyle, Fill, Stroke } from 'ol/style'
+import {Circle as CircleStyle, Fill, Icon, Style} from 'ol/style'
 
-import { calculateMaximumSingleDangerZone } from '../api/emission.js';
-import { getCurrentWeather } from '../api/weather.js';
+import {calculateMaximumSingleDangerZone} from '../api/emission.js';
+import {getCurrentWeather} from '../api/weather.js';
+import boilerIcon from '../icons/boiler.png';
 
 const mapRoot = ref(null)
 const map = ref(null)
@@ -65,16 +66,7 @@ const layersState = reactive({
   vehicleQueues: { visible: false }
 })
 
-function createEllipse() {
-  const dangerZone = {
-    lon: 86.0833,
-    lat: 55.3333,
-    length: 1000,
-    width: 500,
-    angle: 0, // windDirection
-    color: 'rgba(164, 125, 184, 0.6)'
-  }
-
+function createEllipse(dangerZone) {
   const semiMajor = dangerZone.length;
   const semiMinor = dangerZone.width;
 
@@ -115,72 +107,213 @@ function createEllipse() {
   return ellipseFeature;
 }
 
-function createLayers() {
+function createSinglesLayer(dangerZones) {
   const singlesSource = new VectorSource()
-  const ellipse1 = createEllipse();
-  singlesSource.addFeature(ellipse1);
 
-  const singlesLayer = new VectorLayer({
-    source: singlesSource,
-    visible: true
+  dangerZones.forEach(dangerZone => {
+    const ellipse = createEllipse(dangerZone);
+    singlesSource.addFeature(ellipse);
+
+    const pointFeature = new Feature({
+      geometry: new Point(fromLonLat([dangerZone.lon, dangerZone.lat])),
+      type: 'boiler'
+    })
+    pointFeature.set('dangerColor', dangerZone.color);
+    singlesSource.addFeature(pointFeature)
+  })
+
+  const pointStyle = new Style({
+    image: new Icon({
+      src: boilerIcon,
+      scale: 0.05,
+      anchor: [0.5, 1],
+      anchorXUnits: 'fraction',
+      anchorYUnits: 'fraction'
+    })
   });
 
+  const ellipseStyle = new Style({
+    fill: new Fill({
+      color: 'black'
+    }),
+  });
 
+  return new VectorLayer({
+    source: singlesSource,
+    visible: true,
+    style: feature => {
+      const geom = feature.getGeometry();
+      const color = feature.get('dangerColor') || 'black';
+
+      if (geom.getType() === 'Point') {
+        return pointStyle;
+      }
+
+      if (geom.getType() === 'Polygon') {
+        ellipseStyle.getFill().setColor(color);
+        return ellipseStyle;
+      }
+
+      return null;
+    }
+  });
+}
+
+function createVehicleFlowsLayer() {
   const vehicleFlowsSource = new VectorSource()
   const vehicleFlowsFeature = new Feature({
     geometry: new Point(fromLonLat([86.028311, 55.349136]))
   })
   vehicleFlowsSource.addFeature(vehicleFlowsFeature)
 
-  const vehicleFlowsLayers = new VectorLayer({
+  return new VectorLayer({
     source: vehicleFlowsSource,
     visible: false,
     style: new Style({
       image: new CircleStyle({
         radius: 6,
-        fill: new Fill({ color: 'green' })
+        fill: new Fill({color: 'green'})
       })
     })
-  })
+  });
+}
 
+function createVehicleQueuesLayer() {
   const vehicleQueuesSource = new VectorSource()
   const vehicleQueuesFeature = new Feature({
     geometry: new Point(fromLonLat([86.114142, 55.352852]))
   })
   vehicleQueuesSource.addFeature(vehicleQueuesFeature)
 
-  const vehicleQueuesLayers = new VectorLayer({
+  return new VectorLayer({
     source: vehicleQueuesSource,
     visible: false,
     style: new Style({
       image: new CircleStyle({
         radius: 6,
-        fill: new Fill({ color: 'blue' })
+        fill: new Fill({color: 'blue'})
       })
     })
-  })
-
-  olLayers.singles = singlesLayer;
-  olLayers.vehicleFlows = vehicleFlowsLayers;
-  olLayers.vehicleQueues = vehicleQueuesLayers;
-
-  return { singlesLayer, vehicleFlowsLayers, vehicleQueuesLayers };
+  });
 }
 
-onMounted(() => {
+function createLayers(dangerZones) {
+  const singlesLayer = createSinglesLayer(dangerZones);
+  const vehicleFlowsLayer = createVehicleFlowsLayer();
+  const vehicleQueuesLayer = createVehicleQueuesLayer();
+
+  olLayers.singles = singlesLayer;
+  olLayers.vehicleFlows = vehicleFlowsLayer;
+  olLayers.vehicleQueues = vehicleQueuesLayer;
+
+  return { singlesLayer, vehicleFlowsLayer, vehicleQueuesLayer };
+}
+
+onMounted(async () => {
   const baseLayer = new TileLayer({
     source: new OSM()
   })
 
+  const weather = await getCurrentWeather();
+  const emission = await calculateMaximumSingleDangerZone({
+    pollutant: 2, // solid particles
+    ejectedTemp: 255,
+    airTemp: weather.temperature,
+    avgExitSpeed: 30,
+    heightSource: 100,
+    diameterSource: 4,
+    tempStratificationRatio: 250,
+    sedimentationRateRatio: 3,
+    windSpeed: weather.windSpeed,
+    distance: 10000,
+  });
+
+  const emission2 = await calculateMaximumSingleDangerZone({
+    pollutant: 2, // solid particles
+    ejectedTemp: 245,
+    airTemp: weather.temperature,
+    avgExitSpeed: 19,
+    heightSource: 120,
+    diameterSource: 3,
+    tempStratificationRatio: 250,
+    sedimentationRateRatio: 3,
+    windSpeed: weather.windSpeed,
+    distance: 10000,
+  });
+
+  const emission3 = await calculateMaximumSingleDangerZone({
+    pollutant: 2, // solid particles
+    ejectedTemp: 255,
+    airTemp: weather.temperature,
+    avgExitSpeed: 15,
+    heightSource: 80,
+    diameterSource: 2,
+    tempStratificationRatio: 250,
+    sedimentationRateRatio: 3,
+    windSpeed: weather.windSpeed,
+    distance: 10000,
+  });
+
+  const emission4 = await calculateMaximumSingleDangerZone({
+    pollutant: 2, // solid particles
+    ejectedTemp: 265,
+    airTemp: weather.temperature,
+    avgExitSpeed: 30,
+    heightSource: 60,
+    diameterSource: 6,
+    tempStratificationRatio: 250,
+    sedimentationRateRatio: 3,
+    windSpeed: weather.windSpeed,
+    distance: 10000,
+  });
+
+  const dangerZone = {
+    lon: 85.99424,
+    lat: 55.347918,
+    length: emission.length,
+    width: emission.width,
+    angle: weather.windDirection,
+    color: emission.color
+  }
+
+  const dangerZone2 = {
+    lon: 86.068655,
+    lat: 55.363112,
+    length: emission2.length,
+    width: emission2.width,
+    angle: weather.windDirection,
+    color: emission2.color
+  }
+
+  const dangerZone3 = {
+    lon: 86.035864,
+    lat: 55.365342,
+    length: emission3.length,
+    width: emission3.width,
+    angle: weather.windDirection,
+    color: emission3.color
+  }
+
+  const dangerZone4 = {
+    lon: 86.076927,
+    lat: 55.390792,
+    length: emission4.length,
+    width: emission4.width,
+    angle: weather.windDirection,
+    color: emission4.color
+  }
+
+  const dangerZones = [dangerZone, dangerZone2, dangerZone3, dangerZone4]
+
   const {
     singlesLayer,
-    vehicleFlowsLayers,
-    vehicleQueuesLayers
-  } = createLayers()
+    vehicleFlowsLayer,
+    vehicleQueuesLayer
+  } = createLayers(dangerZones);
 
   map.value = new Map({
     target: mapRoot.value,
-    layers: [baseLayer, singlesLayer, vehicleFlowsLayers, vehicleQueuesLayers ],
+    layers: [baseLayer, singlesLayer, vehicleFlowsLayer, vehicleQueuesLayer],
     view: new View({
       center: fromLonLat([86.0833, 55.3333]),
       zoom: 12

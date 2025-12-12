@@ -1,13 +1,12 @@
 const API_BASE_URL = 'http://localhost:5212'
 
-export async function getCurrentWeather(payload) {
+export async function getCurrentWeather() {
     const response = await fetch(API_BASE_URL + '/weather/current?city=Kemerovo', {
-        method: 'POST',
+        method: 'GET',
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        }
     });
 
     if (!response.ok) {
