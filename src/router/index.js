@@ -9,42 +9,42 @@ const routes = [
   {
     path: '/gasoline-generator',
     name: 'gasoline-generator',
-    component: () => import('../views/GasolineGeneratorView.vue')
+    component: () => import('../views/GasolineGeneratorCalculateView.vue')
   },
   {
     path: '/reservoirs',
     name: 'reservoirs',
-    component: () => import('../views/Reservoirs.vue')
+    component: () => import('../views/ReservoirsCalculateView.vue')
   },
   {
     path: '/during-metal-machining',
     name: 'during-metal-machining',
-    component: () => import('../views/DuringMetalMachining.vue')
+    component: () => import('../views/DuringMetalMachiningCalculateView.vue')
   },
   {
     path: '/during-welding-operations',
     name: 'during-welding-operations',
-    component: () => import('../views/DuringWeldingOperations.vue')
+    component: () => import('../views/DuringWeldingOperationsCalculateView.vue')
   },
   {
     path: '/maximum-single',
     name: 'maximum-single',
-    component: () => import('../views/MaximumSingle.vue')
+    component: () => import('../views/MaximumSingleCalculateView.vue')
   },
   {
     path: '/vehicle-flow',
     name: 'vehicle-flow',
-    component: () => import('../views/VehicleFlow.vue')
+    component: () => import('../views/VehicleFlowCalculateView.vue')
   },
   {
     path: '/traffic-light-queue',
     name: 'traffic-light-queue',
-    component: () => import('../views/TrafficLightQueue.vue')
+    component: () => import('../views/TrafficLightQueueCalculateView.vue')
   },
   {
     path: '/open-coal-warehouse',
     name: 'open-coal-warehouse',
-    component: () => import('../views/OpenCoalWarehouse.vue')
+    component: () => import('../views/OpenCoalWarehouseCalculateView.vue')
   }
 ]
 

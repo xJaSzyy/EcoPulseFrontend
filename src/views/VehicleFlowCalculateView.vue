@@ -108,7 +108,7 @@ const goBack = () => {
 
 const calculate = async () => {
   try {
-    const response = await fetch('http://localhost:5000/calculate/vehicle-flow', {
+    const response = await fetch('http://localhost:5212/calculate/vehicle-flow', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

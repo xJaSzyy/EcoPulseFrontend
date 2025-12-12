@@ -104,7 +104,7 @@ const goBack = () => {
 
 const calculate = async () => {
   try {
-    const response = await fetch('http://localhost:5000/calculate/traffic-light-queue', {
+    const response = await fetch('http://localhost:5212/calculate/traffic-light-queue', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

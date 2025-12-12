@@ -71,7 +71,7 @@ const goBack = () => {
 
 const calculate = async () => {
   try {
-    const response = await fetch('http://localhost:5000/calculate/gasoline-generator', {
+    const response = await fetch('http://localhost:5212/calculate/gasoline-generator', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

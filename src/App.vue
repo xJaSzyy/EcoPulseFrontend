@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <header class="app-header" v-if="$route.name !== 'home'">
+    <header class="app-header" v-if="!['home', 'map'].includes($route.name)">
       <div class="header-content">
         <h1 class="app-title">EcoPulse</h1>
         <p class="app-subtitle">Система расчета выбросов загрязняющих веществ</p>
@@ -12,7 +12,7 @@
     </main>
     
     <footer class="app-footer" v-if="$route.name === 'home'">
-      <p>&copy; 2024 EcoPulse. Все права защищены.</p>
+      <p>&copy; 2025 EcoPulse. Все права защищены.</p>
     </footer>
   </div>
 </template>

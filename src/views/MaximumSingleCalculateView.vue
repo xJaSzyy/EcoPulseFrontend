@@ -112,7 +112,7 @@ const goBack = () => {
 
 const calculate = async () => {
   try {
-    const response = await fetch('http://localhost:5000/calculate/maximum-single', {
+    const response = await fetch('http://localhost:5212/calculate/maximum-single', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
