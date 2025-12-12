@@ -45,7 +45,12 @@ const routes = [
     path: '/open-coal-warehouse',
     name: 'open-coal-warehouse',
     component: () => import('../views/OpenCoalWarehouseCalculateView.vue')
-  }
+  },
+    {
+        path: '/map',
+        name: 'map',
+        component: () => import('../components/Map.vue')
+    },
 ]
 
 const router = createRouter({
