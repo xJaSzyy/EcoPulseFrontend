@@ -47,6 +47,9 @@ import { Point, Polygon } from 'ol/geom'
 import Feature from 'ol/Feature'
 import { Style, Circle as CircleStyle, Fill, Stroke } from 'ol/style'
 
+import { calculateMaximumSingleDangerZone } from '../api/emission.js';
+import { getCurrentWeather } from '../api/weather.js';
+
 const mapRoot = ref(null)
 const map = ref(null)
 
