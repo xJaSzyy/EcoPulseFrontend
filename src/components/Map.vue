@@ -29,12 +29,21 @@
         Перекрестки
       </label>
     </div>
+
+    <WeatherInfo
+        v-if="weather"
+        :temperature="weather.temperature"
+        :iconUrl="weather.iconUrl"
+        :windSpeed="weather.windSpeed"
+        :windDirection="weather.windDirection"
+    />
   </div>
 </template>
 
 <script setup>
 import {onMounted, reactive, ref} from 'vue'
 import 'ol/ol.css'
+import {defaults as defaultControls} from 'ol/control'
 import Map from 'ol/Map'
 import {fromLonLat} from 'ol/proj'
 import View from 'ol/View'
@@ -50,9 +59,11 @@ import {Circle as CircleStyle, Fill, Icon, Style} from 'ol/style'
 import {calculateDangerZones} from '../api/emission.js';
 import {getCurrentWeather} from '../api/weather.js';
 import boilerIcon from '../icons/boiler.png';
+import WeatherInfo from "../components/WeatherInfo.vue";
 
 const mapRoot = ref(null)
 const map = ref(null)
+const weather = ref(null)
 
 const olLayers = reactive({
   singles: null,
@@ -214,13 +225,19 @@ onMounted(async () => {
     source: new OSM()
   })
 
-  const weather = await getCurrentWeather();
+  const currentWeather = await getCurrentWeather();
+  weather.value = {
+    temperature: currentWeather.temperature,
+    iconUrl: currentWeather.iconUrl,
+    windSpeed: currentWeather.windSpeed,
+    windDirection: currentWeather.windDirection,
+  }
 
   const dangerZones = await calculateDangerZones({
     pollutant: 2, // solid particles
-    airTemp: weather.temperature,
-    windSpeed: weather.windSpeed,
-    windDirection: weather.windDirection
+    airTemp: currentWeather.temperature,
+    windSpeed: currentWeather.windSpeed,
+    windDirection: currentWeather.windDirection
   });
 
   const {
@@ -235,6 +252,9 @@ onMounted(async () => {
     view: new View({
       center: fromLonLat([86.0833, 55.3333]),
       zoom: 12
+    }),
+    controls: defaultControls({
+      zoom: false
     })
   })
 })
@@ -257,8 +277,8 @@ const toggleLayer = (key) => {
 
 .layer-panel {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 24px;
+  left: 24px;
   padding: 8px 12px;
   background: white;
   border-radius: 4px;
