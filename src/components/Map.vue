@@ -47,7 +47,7 @@ import {Point, Polygon} from 'ol/geom'
 import Feature from 'ol/Feature'
 import {Circle as CircleStyle, Fill, Icon, Style} from 'ol/style'
 
-import {calculateMaximumSingleDangerZone} from '../api/emission.js';
+import {calculateDangerZones} from '../api/emission.js';
 import {getCurrentWeather} from '../api/weather.js';
 import boilerIcon from '../icons/boiler.png';
 
@@ -215,95 +215,13 @@ onMounted(async () => {
   })
 
   const weather = await getCurrentWeather();
-  const emission = await calculateMaximumSingleDangerZone({
+
+  const dangerZones = await calculateDangerZones({
     pollutant: 2, // solid particles
-    ejectedTemp: 255,
     airTemp: weather.temperature,
-    avgExitSpeed: 30,
-    heightSource: 100,
-    diameterSource: 4,
-    tempStratificationRatio: 250,
-    sedimentationRateRatio: 3,
     windSpeed: weather.windSpeed,
-    distance: 10000,
+    windDirection: weather.windDirection
   });
-
-  const emission2 = await calculateMaximumSingleDangerZone({
-    pollutant: 2, // solid particles
-    ejectedTemp: 245,
-    airTemp: weather.temperature,
-    avgExitSpeed: 19,
-    heightSource: 120,
-    diameterSource: 3,
-    tempStratificationRatio: 250,
-    sedimentationRateRatio: 3,
-    windSpeed: weather.windSpeed,
-    distance: 10000,
-  });
-
-  const emission3 = await calculateMaximumSingleDangerZone({
-    pollutant: 2, // solid particles
-    ejectedTemp: 255,
-    airTemp: weather.temperature,
-    avgExitSpeed: 15,
-    heightSource: 80,
-    diameterSource: 2,
-    tempStratificationRatio: 250,
-    sedimentationRateRatio: 3,
-    windSpeed: weather.windSpeed,
-    distance: 10000,
-  });
-
-  const emission4 = await calculateMaximumSingleDangerZone({
-    pollutant: 2, // solid particles
-    ejectedTemp: 265,
-    airTemp: weather.temperature,
-    avgExitSpeed: 30,
-    heightSource: 60,
-    diameterSource: 6,
-    tempStratificationRatio: 250,
-    sedimentationRateRatio: 3,
-    windSpeed: weather.windSpeed,
-    distance: 10000,
-  });
-
-  const dangerZone = {
-    lon: 85.99424,
-    lat: 55.347918,
-    length: emission.length,
-    width: emission.width,
-    angle: weather.windDirection,
-    color: emission.color
-  }
-
-  const dangerZone2 = {
-    lon: 86.068655,
-    lat: 55.363112,
-    length: emission2.length,
-    width: emission2.width,
-    angle: weather.windDirection,
-    color: emission2.color
-  }
-
-  const dangerZone3 = {
-    lon: 86.035864,
-    lat: 55.365342,
-    length: emission3.length,
-    width: emission3.width,
-    angle: weather.windDirection,
-    color: emission3.color
-  }
-
-  const dangerZone4 = {
-    lon: 86.076927,
-    lat: 55.390792,
-    length: emission4.length,
-    width: emission4.width,
-    angle: weather.windDirection,
-    color: emission4.color
-  }
-
-  const dangerZones = [dangerZone, dangerZone2, dangerZone3, dangerZone4]
 
   const {
     singlesLayer,

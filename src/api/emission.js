@@ -17,3 +17,21 @@ export async function calculateMaximumSingleDangerZone(payload) {
 
     return await response.json();
 }
+
+export async function calculateDangerZones(payload) {
+    const response = await fetch(API_BASE_URL + '/calculate/danger-zones', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Request failed: ${response.status} ${errorText}`);
+    }
+
+    return await response.json();
+}
