@@ -1,7 +1,7 @@
 const API_BASE_URL = 'http://localhost:5000'
 
-export async function getCurrentWeather() {
-    const response = await fetch(API_BASE_URL + '/weather/current?city=Kemerovo', {
+export async function getEmissionSourceById(id) {
+    const response = await fetch(API_BASE_URL + '/emissionSource/' + id, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',

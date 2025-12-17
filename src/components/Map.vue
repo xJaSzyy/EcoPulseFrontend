@@ -37,7 +37,21 @@
         :windSpeed="weather.windSpeed"
         :windDirection="weather.windDirection"
     />
+
+    <div v-if="selectedDangerZone" class="danger-info">
+      <p>Цвет: {{ selectedDangerZone.color }}</p>
+      <p>Длина: {{ selectedDangerZone.length }} м</p>
+      <p>Ширина: {{ selectedDangerZone.width }} м</p>
+      <p>Угол: {{ selectedDangerZone.angle }}°</p>
+    </div>
   </div>
+
+  <SimulationPanel
+      :startData="simulationStartData"
+      v-if="showSimulationPanel"
+      @buildSimulation="buildSimulation"
+      @close="showSimulationPanel = false;"
+  />
 </template>
 
 <script setup>
@@ -56,14 +70,19 @@ import {Point, Polygon} from 'ol/geom'
 import Feature from 'ol/Feature'
 import {Circle as CircleStyle, Fill, Icon, Style} from 'ol/style'
 
-import {calculateDangerZones} from '../api/emission.js';
+import {calculateDangerZones, calculateMaximumSingleDangerZone} from '../api/emission.js';
 import {getCurrentWeather} from '../api/weather.js';
+import {getEmissionSourceById} from '../api/emissionSource.js';
 import boilerIcon from '../icons/boiler.png';
 import WeatherInfo from "../components/WeatherInfo.vue";
+import SimulationPanel from '../components/SimulationPanel.vue'
 
 const mapRoot = ref(null)
 const map = ref(null)
 const weather = ref(null)
+const selectedDangerZone = ref(null)
+const showSimulationPanel = ref(false)
+const simulationStartData = ref(null)
 
 const olLayers = reactive({
   singles: null,
@@ -76,6 +95,35 @@ const layersState = reactive({
   vehicleFlows: { visible: false },
   vehicleQueues: { visible: false }
 })
+
+async function buildSimulation(data) {
+  const dangerZone = await calculateMaximumSingleDangerZone({
+    pollutant: 2,
+    ejectedTemp: data.ejectedTemp,
+    airTemp: data.airTemp,
+    avgExitSpeed: data.avgExitSpeed,
+    heightSource: data.heightSource,
+    diameterSource: data.diameterSource,
+    tempStratificationRatio: data.tempStratificationRatio,
+    sedimentationRateRatio: data.sedimentationRateRatio,
+    windSpeed: data.windSpeed,
+    distance: 10000,
+  });
+
+  dangerZone.lon = data.lon;
+  dangerZone.lat = data.lat;
+  dangerZone.angle = data.windDirection;
+
+  const dangerZones = [dangerZone]
+
+  if (olLayers.singles) {
+    map.value.removeLayer(olLayers.singles)
+  }
+
+  const singlesLayer = createSinglesLayer(dangerZones)
+  olLayers.singles = singlesLayer
+  map.value.addLayer(singlesLayer)
+}
 
 function createEllipse(dangerZone) {
   const semiMajor = dangerZone.length;
@@ -114,6 +162,8 @@ function createEllipse(dangerZone) {
         }),
       })
   );
+
+  ellipseFeature.set('dangerData', dangerZone);
 
   return ellipseFeature;
 }
@@ -257,6 +307,40 @@ onMounted(async () => {
       zoom: false
     })
   })
+
+  map.value.on('singleclick', async (evt) => {
+    const pixel = evt.pixel;
+
+    let found = null;
+
+    map.value.forEachFeatureAtPixel(pixel, (feature, layer) => {
+      if (feature.getGeometry().getType() === 'Polygon') {
+        const dangerData = feature.get('dangerData');
+        if (dangerData) {
+          found = dangerData;
+        }
+      }
+    });
+
+    showSimulationPanel.value = found != null;
+    selectedDangerZone.value = found;
+
+    if (showSimulationPanel.value) {
+      const emissionSource = await getEmissionSourceById(found.emissionSourceId);
+
+      simulationStartData.value = {
+        lon: emissionSource.lon,
+        lat: emissionSource.lat,
+        ejectedTemp: emissionSource.ejectedTemp,
+        airTemp: weather.value.temperature,
+        avgExitSpeed: emissionSource.avgExitSpeed,
+        heightSource: emissionSource.heightSource,
+        diameterSource: emissionSource.diameterSource,
+        windSpeed: weather.value.windSpeed,
+        windDirection: weather.value.windDirection
+      }
+    }
+  });
 })
 
 const toggleLayer = (key) => {
@@ -292,4 +376,16 @@ const toggleLayer = (key) => {
 .layer-panel label {
   display: block;
 }
+
+.danger-info {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  background: #fff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  font-size: 14px;
+}
+
 </style>
