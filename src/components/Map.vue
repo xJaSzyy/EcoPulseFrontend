@@ -110,19 +110,30 @@ async function buildSimulation(data) {
     distance: 10000,
   });
 
+  dangerZone.emissionSourceId = data.emissionSourceId;
   dangerZone.lon = data.lon;
   dangerZone.lat = data.lat;
   dangerZone.angle = data.windDirection;
 
-  const dangerZones = [dangerZone]
+  const singlesLayer = olLayers.singles;
+  const source = singlesLayer.getSource();
 
-  if (olLayers.singles) {
-    map.value.removeLayer(olLayers.singles)
-  }
+  const featuresToRemove = source.getFeatures().filter(f => {
+    return f.get('emissionSourceId') === dangerZone.emissionSourceId;
+  });
 
-  const singlesLayer = createSinglesLayer(dangerZones)
-  olLayers.singles = singlesLayer
-  map.value.addLayer(singlesLayer)
+  source.removeFeatures(featuresToRemove);
+
+  const ellipse = createEllipse(dangerZone);
+  ellipse.set('emissionSourceId', dangerZone.emissionSourceId);
+  source.addFeature(ellipse);
+
+  const pointFeature = new Feature({
+    geometry: new Point(fromLonLat([dangerZone.lon, dangerZone.lat])),
+    type: 'boiler'
+  });
+  pointFeature.set('emissionSourceId', dangerZone.emissionSourceId);
+  source.addFeature(pointFeature);
 }
 
 function createEllipse(dangerZone) {
@@ -164,6 +175,7 @@ function createEllipse(dangerZone) {
   );
 
   ellipseFeature.set('dangerData', dangerZone);
+  ellipseFeature.set('emissionSourceId', dangerZone.emissionSourceId);
 
   return ellipseFeature;
 }
@@ -173,6 +185,7 @@ function createSinglesLayer(dangerZones) {
 
   dangerZones.forEach(dangerZone => {
     const ellipse = createEllipse(dangerZone);
+    ellipse.set('emissionSourceId', dangerZone.emissionSourceId);
     singlesSource.addFeature(ellipse);
 
     const pointFeature = new Feature({
@@ -180,6 +193,8 @@ function createSinglesLayer(dangerZones) {
       type: 'boiler'
     })
     pointFeature.set('dangerColor', dangerZone.color);
+    pointFeature.set('emissionSourceId', dangerZone.emissionSourceId);
+
     singlesSource.addFeature(pointFeature)
   })
 
@@ -329,6 +344,7 @@ onMounted(async () => {
       const emissionSource = await getEmissionSourceById(found.emissionSourceId);
 
       simulationStartData.value = {
+        emissionSourceId: emissionSource.id,
         lon: emissionSource.lon,
         lat: emissionSource.lat,
         ejectedTemp: emissionSource.ejectedTemp,

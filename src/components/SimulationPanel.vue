@@ -128,6 +128,7 @@ const props = defineProps({
 });
 
 const formData = reactive({
+  emissionSourceId: 0,
   lon: 0,
   lat: 0,
   ejectedTemp: 0,
