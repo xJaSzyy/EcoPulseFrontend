@@ -65,7 +65,7 @@ import {Circle as CircleStyle, Fill, Icon, Style} from 'ol/style'
 
 import {calculateDangerZones, calculateMaximumSingleDangerZone} from '../api/emission.js';
 import {getCurrentWeather} from '../api/weather.js';
-import {getEmissionSourceById} from '../api/emissionSource.js';
+import {getSingleEmissionSourceById} from '../api/emissionSource.js';
 import boilerIcon from '../icons/boiler.png';
 import WeatherInfo from "../components/WeatherInfo.vue";
 import SimulationPanel from '../components/SimulationPanel.vue'
@@ -345,7 +345,7 @@ onMounted(async () => {
 
       showSimulationPanel.value = true;
 
-      const emissionSource = await getEmissionSourceById(found.emissionSourceId);
+      const emissionSource = await getSingleEmissionSourceById(found.emissionSourceId);
 
       simulationStartData.value = {
         emissionSourceId: emissionSource.id,

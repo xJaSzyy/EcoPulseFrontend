@@ -89,6 +89,7 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import ResultsTable from '../components/DistanceResultsTable.vue'
+import {API_BASE_URL} from "../api/config.js";
 
 const router = useRouter();
 const result = ref(null);
@@ -112,7 +113,7 @@ const goBack = () => {
 
 const calculate = async () => {
   try {
-    const response = await fetch('http://localhost:5212/calculate/maximum-single', {
+    const response = await fetch(API_BASE_URL + '/calculate/maximum-single', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

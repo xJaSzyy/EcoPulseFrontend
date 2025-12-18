@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:5000'
+import {API_BASE_URL} from "./config.js";
 
 export async function getCurrentWeather() {
     const response = await fetch(API_BASE_URL + '/weather/current?city=Kemerovo', {

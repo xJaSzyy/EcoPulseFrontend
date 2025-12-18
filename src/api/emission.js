@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:5000'
+import {API_BASE_URL} from "./config.js";
 
 export async function calculateMaximumSingleDangerZone(payload) {
     const response = await fetch(API_BASE_URL + '/calculate/maximum-single/danger-zone', {

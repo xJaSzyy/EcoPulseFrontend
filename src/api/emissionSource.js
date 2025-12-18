@@ -1,7 +1,7 @@
-const API_BASE_URL = 'http://localhost:5000'
+import {API_BASE_URL} from "./config.js";
 
-export async function getEmissionSourceById(id) {
-    const response = await fetch(API_BASE_URL + '/emissionSource/' + id, {
+export async function getSingleEmissionSourceById(id) {
+    const response = await fetch(API_BASE_URL + '/emissionSource/single/' + id, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',

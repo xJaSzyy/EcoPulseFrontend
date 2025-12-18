@@ -89,6 +89,7 @@
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import ResultsTable from '../components/ResultsTable.vue'
+import {API_BASE_URL} from "../api/config.js";
 
 const router = useRouter();
 const result = ref(null);
@@ -108,7 +109,7 @@ const goBack = () => {
 
 const calculate = async () => {
   try {
-    const response = await fetch('http://localhost:5212/calculate/vehicle-flow', {
+    const response = await fetch(API_BASE_URL + '/calculate/vehicle-flow', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
