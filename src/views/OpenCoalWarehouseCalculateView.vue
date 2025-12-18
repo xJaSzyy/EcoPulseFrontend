@@ -71,7 +71,7 @@ const goBack = () => {
 
 const calculate = async () => {
   try {
-    const response = await fetch(API_BASE_URL + '/calculate/open-coal-warehouse', {
+    const response = await fetch(API_BASE_URL + '/emission/open-coal-warehouse', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

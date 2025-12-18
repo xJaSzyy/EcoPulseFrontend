@@ -105,7 +105,7 @@ const goBack = () => {
 
 const calculate = async () => {
   try {
-    const response = await fetch(API_BASE_URL + '/calculate/traffic-light-queue', {
+    const response = await fetch(API_BASE_URL + '/emission/traffic-light-queue', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

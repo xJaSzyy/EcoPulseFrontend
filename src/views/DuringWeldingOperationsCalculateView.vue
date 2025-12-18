@@ -49,7 +49,7 @@ const goBack = () => {
 
 const calculate = async () => {
   try {
-    const response = await fetch(API_BASE_URL + '/calculate/during-welding-operations', {
+    const response = await fetch(API_BASE_URL + '/emission/during-welding-operations', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -1,7 +1,7 @@
 import {API_BASE_URL} from "./config.js";
 
 export async function getSingleEmissionSourceById(id) {
-    const response = await fetch(API_BASE_URL + '/emissionSource/single/' + id, {
+    const response = await fetch(API_BASE_URL + '/emission-source/single/' + id, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',

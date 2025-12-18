@@ -63,7 +63,7 @@ import {Point, Polygon} from 'ol/geom'
 import Feature from 'ol/Feature'
 import {Circle as CircleStyle, Fill, Icon, Style} from 'ol/style'
 
-import {calculateDangerZones, calculateMaximumSingleDangerZone} from '../api/emission.js';
+import {calculateSingleDangerZones, calculateSingleDangerZone} from '../api/dangerZone.js';
 import {getCurrentWeather} from '../api/weather.js';
 import {getSingleEmissionSourceById} from '../api/emissionSource.js';
 import boilerIcon from '../icons/boiler.png';
@@ -89,7 +89,7 @@ const layersState = reactive({
 })
 
 async function buildSimulation(data) {
-  const dangerZone = await calculateMaximumSingleDangerZone({
+  const dangerZone = await calculateSingleDangerZone({
     pollutant: 2,
     ejectedTemp: data.ejectedTemp,
     airTemp: data.airTemp,
@@ -296,7 +296,7 @@ onMounted(async () => {
     windDirection: currentWeather.windDirection,
   }
 
-  const dangerZones = await calculateDangerZones({
+  const dangerZones = await calculateSingleDangerZones({
     pollutant: 2, // solid particles
     airTemp: currentWeather.temperature,
     windSpeed: currentWeather.windSpeed,

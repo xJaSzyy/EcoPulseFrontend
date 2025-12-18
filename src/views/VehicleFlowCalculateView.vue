@@ -109,7 +109,7 @@ const goBack = () => {
 
 const calculate = async () => {
   try {
-    const response = await fetch(API_BASE_URL + '/calculate/vehicle-flow', {
+    const response = await fetch(API_BASE_URL + '/emission/vehicle-flow', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

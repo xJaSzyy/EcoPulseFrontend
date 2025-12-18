@@ -113,7 +113,7 @@ const goBack = () => {
 
 const calculate = async () => {
   try {
-    const response = await fetch(API_BASE_URL + '/calculate/maximum-single', {
+    const response = await fetch(API_BASE_URL + '/emission/maximum-single', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
