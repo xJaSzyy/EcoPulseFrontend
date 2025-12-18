@@ -19,7 +19,7 @@ export async function calculateMaximumSingleDangerZone(payload) {
 }
 
 export async function calculateDangerZones(payload) {
-    const response = await fetch(API_BASE_URL + '/calculate/danger-zones', {
+    const response = await fetch(API_BASE_URL + '/calculate/maximum-single/danger-zones', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

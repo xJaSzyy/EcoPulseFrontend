@@ -41,7 +41,7 @@
             v-model.number="formData.avgExitSpeed"
             type="range"
             min="15"
-            max="31"
+            max="30"
             step="1"
         />
         <span>{{ formData.avgExitSpeed }} м/с</span>
