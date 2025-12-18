@@ -33,24 +33,17 @@
     <WeatherInfo
         v-if="weather"
         :temperature="weather.temperature"
-        :iconUrl="weather.iconUrl"
-        :windSpeed="weather.windSpeed"
-        :windDirection="weather.windDirection"
+        :icon-class="weather.iconClass"
+        :wind-speed="weather.windSpeed"
+        :wind-direction="weather.windDirection"
     />
-
-    <div v-if="selectedDangerZone" class="danger-info">
-      <p>Цвет: {{ selectedDangerZone.color }}</p>
-      <p>Длина: {{ selectedDangerZone.length }} м</p>
-      <p>Ширина: {{ selectedDangerZone.width }} м</p>
-      <p>Угол: {{ selectedDangerZone.angle }}°</p>
-    </div>
   </div>
 
   <SimulationPanel
       :startData="simulationStartData"
       v-if="showSimulationPanel"
       @buildSimulation="buildSimulation"
-      @close="showSimulationPanel = false;"
+      @close="closeSimulationPanel"
   />
 </template>
 
@@ -80,7 +73,6 @@ import SimulationPanel from '../components/SimulationPanel.vue'
 const mapRoot = ref(null)
 const map = ref(null)
 const weather = ref(null)
-const selectedDangerZone = ref(null)
 const showSimulationPanel = ref(false)
 const simulationStartData = ref(null)
 
@@ -134,6 +126,12 @@ async function buildSimulation(data) {
   });
   pointFeature.set('emissionSourceId', dangerZone.emissionSourceId);
   source.addFeature(pointFeature);
+}
+
+async function closeSimulationPanel() {
+  await buildSimulation(simulationStartData.value);
+  showSimulationPanel.value = false;
+  simulationStartData.value = null;
 }
 
 function createEllipse(dangerZone) {
@@ -293,7 +291,7 @@ onMounted(async () => {
   const currentWeather = await getCurrentWeather();
   weather.value = {
     temperature: currentWeather.temperature,
-    iconUrl: currentWeather.iconUrl,
+    iconClass: currentWeather.iconClass,
     windSpeed: currentWeather.windSpeed,
     windDirection: currentWeather.windDirection,
   }
@@ -337,10 +335,16 @@ onMounted(async () => {
       }
     });
 
-    showSimulationPanel.value = found != null;
-    selectedDangerZone.value = found;
+    if (showSimulationPanel.value && found == null) {
+      await closeSimulationPanel();
+    }
+    else if (found != null) {
+      if (simulationStartData.value != null) {
+        await closeSimulationPanel();
+      }
 
-    if (showSimulationPanel.value) {
+      showSimulationPanel.value = true;
+
       const emissionSource = await getEmissionSourceById(found.emissionSourceId);
 
       simulationStartData.value = {
@@ -353,7 +357,9 @@ onMounted(async () => {
         heightSource: emissionSource.heightSource,
         diameterSource: emissionSource.diameterSource,
         windSpeed: weather.value.windSpeed,
-        windDirection: weather.value.windDirection
+        windDirection: weather.value.windDirection,
+        tempStratificationRatio: emissionSource.tempStratificationRatio,
+        sedimentationRateRatio: emissionSource.sedimentationRateRatio,
       }
     }
   });

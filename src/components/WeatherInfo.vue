@@ -2,7 +2,7 @@
   <div id="weather-info" class="weather-panel">
     <div class="weather-row">
       <span>{{ temperature }}°C</span>
-      <img :src="iconUrl" style="width: 48px; height: 48px;">
+      <i :class="['wi', iconClass]" class="weather-icon"></i>
     </div>
     <div class="weather-row">
       <span>{{ windSpeed }} м/с</span>
@@ -22,7 +22,7 @@ export default {
   name: "WeatherInfo",
   props: {
     temperature: { type: Number, required: true },
-    iconUrl: { type: String, required: true },
+    iconClass: { type: String, required: true },
     windSpeed: { type: Number, required: true },
     windDirection: { type: Number, required: true },
   },
@@ -57,5 +57,10 @@ export default {
   align-items: center;
   justify-content: space-between;
   gap: 4px;
+}
+
+.weather-icon {
+  font-size: 24px;
+  line-height: 1;
 }
 </style>

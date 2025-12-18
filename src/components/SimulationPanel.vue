@@ -65,7 +65,7 @@
             v-model.number="formData.diameterSource"
             type="range"
             min="1"
-            max="11"
+            max="10"
             step="1"
         />
         <span>{{ formData.diameterSource }} м</span>
@@ -83,7 +83,6 @@
         <span>{{ formData.windSpeed }} м/с</span>
       </div>
 
-      <!-- Добавляем регулировку направления ветра -->
       <div class="wind-direction-row">
         <label>Направление ветра:</label>
         <div class="wind-direction-control">
@@ -138,8 +137,8 @@ const formData = reactive({
   diameterSource: 0,
   windSpeed: 0,
   windDirection: 0,
-  tempStratificationRatio: 250,
-  sedimentationRateRatio: 3
+  tempStratificationRatio: 0,
+  sedimentationRateRatio: 0
 });
 
 const cardinalDirection = computed(() => {
@@ -180,21 +179,12 @@ watchDebounced(
     }
 );
 
-const emitSimulationData = () => {
-  emit("buildSimulation", {
-    ...formData,
-    heightSource: parseFloat(formData.heightSource),
-    diameterSource: parseFloat(formData.diameterSource),
-  });
-};
-
 const emitClose = () => {
   emit("close");
 };
 </script>
 
 <style scoped>
-/* Стили для блока направления ветра */
 .wind-direction-row {
   display: flex;
   flex-direction: column;
@@ -331,8 +321,8 @@ const emitClose = () => {
 .panel-container {
   position: fixed;
   right: 0;
-  top: 64px;
-  height: calc(100vh - 64px);
+  top: 0;
+  height: 100vh;
   width: 380px;
   padding: 20px;
   background: #ffffff;
@@ -434,26 +424,5 @@ const emitClose = () => {
   text-align: right;
   font-size: 14px;
   color: #666;
-}
-
-.build-button {
-  margin-top: auto;
-  margin-bottom: 32px;
-  padding: 12px 24px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  border-radius: 6px;
-  background-color: #007bff;
-  color: white;
-  transition: all 0.3s ease;
-  align-self: flex-start;
-  width: 100%;
-}
-
-.build-button:hover {
-  background-color: #0056b3;
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
 }
 </style>
