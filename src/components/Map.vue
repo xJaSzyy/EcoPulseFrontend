@@ -59,16 +59,17 @@ import OSM from 'ol/source/OSM'
 
 import VectorLayer from 'ol/layer/Vector'
 import VectorSource from 'ol/source/Vector'
-import {Point, Polygon} from 'ol/geom'
+import {LineString, Point, Polygon} from 'ol/geom'
 import Feature from 'ol/Feature'
-import {Circle as CircleStyle, Fill, Icon, Style} from 'ol/style'
+import {Circle as CircleStyle, Fill, Icon, Stroke, Style} from 'ol/style'
 
-import {calculateSingleDangerZones, calculateSingleDangerZone} from '../api/dangerZone.js';
+import {calculateSingleDangerZones, calculateSingleDangerZone, calculateVehicleFlowDangerZones} from '../api/dangerZone.js';
 import {getCurrentWeather} from '../api/weather.js';
 import {getSingleEmissionSourceById} from '../api/emissionSource.js';
 import boilerIcon from '../icons/boiler.png';
 import WeatherInfo from "../components/WeatherInfo.vue";
 import SimulationPanel from '../components/SimulationPanel.vue'
+import {asArray} from "ol/color";
 
 const mapRoot = ref(null)
 const map = ref(null)
@@ -164,27 +165,20 @@ function createEllipse(dangerZone) {
     geometry: new Polygon([points]),
   });
 
-  ellipseFeature.setStyle(
-      new Style({
-        fill: new Fill({
-          color: dangerZone.color,
-        }),
-      })
-  );
-
   ellipseFeature.set('dangerData', dangerZone);
   ellipseFeature.set('emissionSourceId', dangerZone.emissionSourceId);
+  ellipseFeature.set('dangerColor', dangerZone.color);
 
   return ellipseFeature;
 }
 
-function createSinglesLayer(dangerZones) {
-  const singlesSource = new VectorSource()
+function createSingleLayer(dangerZones) {
+  const singleSource = new VectorSource()
 
   dangerZones.forEach(dangerZone => {
     const ellipse = createEllipse(dangerZone);
     ellipse.set('emissionSourceId', dangerZone.emissionSourceId);
-    singlesSource.addFeature(ellipse);
+    singleSource.addFeature(ellipse);
 
     const pointFeature = new Feature({
       geometry: new Point(fromLonLat([dangerZone.lon, dangerZone.lat])),
@@ -193,7 +187,7 @@ function createSinglesLayer(dangerZones) {
     pointFeature.set('dangerColor', dangerZone.color);
     pointFeature.set('emissionSourceId', dangerZone.emissionSourceId);
 
-    singlesSource.addFeature(pointFeature)
+    singleSource.addFeature(pointFeature)
   })
 
   const pointStyle = new Style({
@@ -213,19 +207,88 @@ function createSinglesLayer(dangerZones) {
   });
 
   return new VectorLayer({
-    source: singlesSource,
+    source: singleSource,
     visible: true,
     style: feature => {
       const geom = feature.getGeometry();
-      const color = feature.get('dangerColor') || 'black';
+      const baseColor = feature.get('dangerColor') || [0, 0, 0];
+      const rgba = Array.isArray(baseColor)
+          ? [baseColor[0], baseColor[1], baseColor[2], 0.6]
+          : asArray(baseColor).slice(0, 3).concat(0.6);
+
+      if (geom.getType() === 'Polygon') {
+        ellipseStyle.getFill().setColor(rgba);
+        return ellipseStyle;
+      }
 
       if (geom.getType() === 'Point') {
         return pointStyle;
       }
 
-      if (geom.getType() === 'Polygon') {
-        ellipseStyle.getFill().setColor(color);
-        return ellipseStyle;
+      return null;
+    }
+
+  });
+}
+
+function createVehicleFlowLayer(dangerZones) {
+  const vehicleFlowsSource = new VectorSource();
+
+  dangerZones.forEach(dangerZone => {
+    const start = fromLonLat([dangerZone.startLocation.lon, dangerZone.startLocation.lat]);
+    const end = fromLonLat([dangerZone.endLocation.lon, dangerZone.endLocation.lat]);
+
+    const lineFeature = new Feature({
+      geometry: new LineString([start, end]),
+      type: 'flow'
+    });
+    lineFeature.set('dangerColor', dangerZone.color);
+    vehicleFlowsSource.addFeature(lineFeature);
+
+    const startPoint = new Feature({
+      geometry: new Point(start),
+      type: 'start'
+    });
+    startPoint.set('dangerColor', dangerZone.color);
+    vehicleFlowsSource.addFeature(startPoint);
+
+    const endPoint = new Feature({
+      geometry: new Point(end),
+      type: 'end'
+    });
+    endPoint.set('dangerColor', dangerZone.color);
+    vehicleFlowsSource.addFeature(endPoint);
+  });
+
+  const lineStyle = new Style({
+    stroke: new Stroke({
+      color: 'black',
+      width: 3
+    })
+  });
+
+  const pointStyle = new Style({
+    image: new CircleStyle({
+      radius: 5,
+      fill: new Fill({ color: 'black' })
+    })
+  });
+
+  return new VectorLayer({
+    source: vehicleFlowsSource,
+    visible: false,
+    style: feature => {
+      const geomType = feature.getGeometry().getType();
+      const color = feature.get('dangerColor') || 'black';
+
+      if (geomType === 'LineString') {
+        lineStyle.getStroke().setColor(color);
+        return lineStyle;
+      }
+
+      if (geomType === 'Point') {
+        pointStyle.getImage().getFill().setColor(color);
+        return pointStyle;
       }
 
       return null;
@@ -233,26 +296,7 @@ function createSinglesLayer(dangerZones) {
   });
 }
 
-function createVehicleFlowsLayer() {
-  const vehicleFlowsSource = new VectorSource()
-  const vehicleFlowsFeature = new Feature({
-    geometry: new Point(fromLonLat([86.028311, 55.349136]))
-  })
-  vehicleFlowsSource.addFeature(vehicleFlowsFeature)
-
-  return new VectorLayer({
-    source: vehicleFlowsSource,
-    visible: false,
-    style: new Style({
-      image: new CircleStyle({
-        radius: 6,
-        fill: new Fill({color: 'green'})
-      })
-    })
-  });
-}
-
-function createVehicleQueuesLayer() {
+function createVehicleQueueLayer() {
   const vehicleQueuesSource = new VectorSource()
   const vehicleQueuesFeature = new Feature({
     geometry: new Point(fromLonLat([86.114142, 55.352852]))
@@ -271,16 +315,16 @@ function createVehicleQueuesLayer() {
   });
 }
 
-function createLayers(dangerZones) {
-  const singlesLayer = createSinglesLayer(dangerZones);
-  const vehicleFlowsLayer = createVehicleFlowsLayer();
-  const vehicleQueuesLayer = createVehicleQueuesLayer();
+function createLayers(singleDangerZones, vehicleFlowDangerZones) {
+  const singleLayer = createSingleLayer(singleDangerZones);
+  const vehicleFlowLayer = createVehicleFlowLayer(vehicleFlowDangerZones);
+  const vehicleQueueLayer = createVehicleQueueLayer();
 
-  olLayers.singles = singlesLayer;
-  olLayers.vehicleFlows = vehicleFlowsLayer;
-  olLayers.vehicleQueues = vehicleQueuesLayer;
+  olLayers.singles = singleLayer;
+  olLayers.vehicleFlows = vehicleFlowLayer;
+  olLayers.vehicleQueues = vehicleQueueLayer;
 
-  return { singlesLayer, vehicleFlowsLayer, vehicleQueuesLayer };
+  return { singleLayer, vehicleFlowLayer, vehicleQueueLayer };
 }
 
 onMounted(async () => {
@@ -296,22 +340,24 @@ onMounted(async () => {
     windDirection: currentWeather.windDirection,
   }
 
-  const dangerZones = await calculateSingleDangerZones({
+  const singleDangerZones = await calculateSingleDangerZones({
     pollutant: 2, // solid particles
     airTemp: currentWeather.temperature,
     windSpeed: currentWeather.windSpeed,
     windDirection: currentWeather.windDirection
   });
 
+  const vehicleFlowDangerZones = await calculateVehicleFlowDangerZones();
+
   const {
-    singlesLayer,
-    vehicleFlowsLayer,
-    vehicleQueuesLayer
-  } = createLayers(dangerZones);
+    singleLayer,
+    vehicleFlowLayer,
+    vehicleQueueLayer
+  } = createLayers(singleDangerZones, vehicleFlowDangerZones);
 
   map.value = new Map({
     target: mapRoot.value,
-    layers: [baseLayer, singlesLayer, vehicleFlowsLayer, vehicleQueuesLayer],
+    layers: [baseLayer, singleLayer, vehicleFlowLayer, vehicleQueueLayer],
     view: new View({
       center: fromLonLat([86.0833, 55.3333]),
       zoom: 12
