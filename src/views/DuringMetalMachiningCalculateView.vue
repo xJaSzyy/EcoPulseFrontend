@@ -37,7 +37,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import ResultsTable from '../components/ResultsTable.vue'
-import {API_BASE_URL} from "../api/config.js";
+import {calculateDuringMetalMachiningEmission} from "../api/emission.js";
 
 const router = useRouter()
 const result = ref(null)
@@ -53,20 +53,7 @@ const goBack = () => {
 
 const calculate = async () => {
   try {
-    const response = await fetch(API_BASE_URL + '/emission/during-metal-machining', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formData.value)
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    result.value = data;
+    result.value = await calculateDuringMetalMachiningEmission(formData.value);
   } catch (error) {
     console.error('Ошибка расчета:', error);
   }

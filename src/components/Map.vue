@@ -349,8 +349,8 @@ onMounted(async () => {
 
       simulationStartData.value = {
         emissionSourceId: emissionSource.id,
-        lon: emissionSource.lon,
-        lat: emissionSource.lat,
+        lon: emissionSource.location.lon,
+        lat: emissionSource.location.lat,
         ejectedTemp: emissionSource.ejectedTemp,
         airTemp: weather.value.temperature,
         avgExitSpeed: emissionSource.avgExitSpeed,

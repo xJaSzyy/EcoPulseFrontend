@@ -43,7 +43,7 @@
 import {computed, ref} from 'vue'
 import {useRouter} from 'vue-router'
 import ResultsTable from '../components/ResultsTable.vue'
-import {API_BASE_URL} from "../api/config.js";
+import {calculateOpenCoalWarehouseEmission} from "../api/emission.js";
 
 const router = useRouter()
 const result = ref(null)
@@ -71,19 +71,7 @@ const goBack = () => {
 
 const calculate = async () => {
   try {
-    const response = await fetch(API_BASE_URL + '/emission/open-coal-warehouse', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formData.value)
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    result.value = await response.json();
+    result.value = await calculateOpenCoalWarehouseEmission(formData.value);
   } catch (error) {
     console.error('Ошибка расчета:', error);
   }
