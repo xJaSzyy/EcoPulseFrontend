@@ -7,37 +7,41 @@
       <label>
         <input
             type="checkbox"
-            v-model="layersState.singles.visible"
-            @change="toggleLayer('singles')"
+            v-model="layersState.single.visible"
+            @change="toggleLayer('single')"
         />
         Котельные
       </label>
       <label>
         <input
             type="checkbox"
-            v-model="layersState.vehicleFlows.visible"
-            @change="toggleLayer('vehicleFlows')"
+            v-model="layersState.vehicleFlow.visible"
+            @change="toggleLayer('vehicleFlow')"
         />
         Дороги
       </label>
       <label>
         <input
             type="checkbox"
-            v-model="layersState.vehicleQueues.visible"
-            @change="toggleLayer('vehicleQueues')"
+            v-model="layersState.vehicleQueue.visible"
+            @change="toggleLayer('vehicleQueue')"
         />
         Перекрестки
       </label>
-    </div>
 
-    <WeatherInfo
-        v-if="weather"
-        :temperature="weather.temperature"
-        :icon-class="weather.iconClass"
-        :wind-speed="weather.windSpeed"
-        :wind-direction="weather.windDirection"
-    />
+      <button class="create-btn" @click="startCreateMode">
+        Создать
+      </button>
+    </div>
   </div>
+
+  <WeatherInfo
+      v-if="weather"
+      :temperature="weather.temperature"
+      :icon-class="weather.iconClass"
+      :wind-speed="weather.windSpeed"
+      :wind-direction="weather.windDirection"
+  />
 
   <SimulationPanel
       :startData="simulationStartData"
@@ -52,7 +56,7 @@ import {onMounted, reactive, ref} from 'vue'
 import 'ol/ol.css'
 import {defaults as defaultControls} from 'ol/control'
 import Map from 'ol/Map'
-import {fromLonLat} from 'ol/proj'
+import {fromLonLat, toLonLat} from 'ol/proj'
 import View from 'ol/View'
 import TileLayer from 'ol/layer/Tile'
 import OSM from 'ol/source/OSM'
@@ -65,7 +69,7 @@ import {Circle as CircleStyle, Fill, Icon, Stroke, Style} from 'ol/style'
 
 import {calculateSingleDangerZones, calculateSingleDangerZone, calculateVehicleFlowDangerZones} from '../api/dangerZone.js';
 import {getCurrentWeather} from '../api/weather.js';
-import {getSingleEmissionSourceById} from '../api/emissionSource.js';
+import {addVehicleFlowEmissionSource, getSingleEmissionSourceById} from '../api/emissionSource.js';
 import boilerIcon from '../icons/boiler.png';
 import WeatherInfo from "../components/WeatherInfo.vue";
 import SimulationPanel from '../components/SimulationPanel.vue'
@@ -77,17 +81,43 @@ const weather = ref(null)
 const showSimulationPanel = ref(false)
 const simulationStartData = ref(null)
 
+const createMode = ref(false)
+const createPoints = ref([])
+
 const olLayers = reactive({
-  singles: null,
-  vehicleFlows: null,
-  vehicleQueues: null
+  single: null,
+  vehicleFlow: null,
+  vehicleQueue: null
 })
 
 const layersState = reactive({
-  singles: { visible: true },
-  vehicleFlows: { visible: false },
-  vehicleQueues: { visible: false }
+  single: { visible: true },
+  vehicleFlow: { visible: false },
+  vehicleQueue: { visible: false }
 })
+
+function startCreateMode() {
+  createMode.value = true
+  createPoints.value = []
+}
+
+async function handleTwoPointsSelected(p1, p2) {
+  await addVehicleFlowEmissionSource({
+    startLocation: {
+      lon: p1[0],
+      lat: p1[1]
+    },
+    endLocation: {
+      lon: p2[0],
+      lat: p2[1]
+    },
+    vehicleType: 1,
+    maxTrafficIntensity: 35,
+    averageSpeed: 40,
+  });
+
+  await updateLayer();
+}
 
 async function buildSimulation(data) {
   const dangerZone = await calculateSingleDangerZone({
@@ -108,8 +138,8 @@ async function buildSimulation(data) {
   dangerZone.lat = data.lat;
   dangerZone.angle = data.windDirection;
 
-  const singlesLayer = olLayers.singles;
-  const source = singlesLayer.getSource();
+  const singleLayer = olLayers.single;
+  const source = singleLayer.getSource();
 
   const featuresToRemove = source.getFeatures().filter(f => {
     return f.get('emissionSourceId') === dangerZone.emissionSourceId;
@@ -127,6 +157,16 @@ async function buildSimulation(data) {
   });
   pointFeature.set('emissionSourceId', dangerZone.emissionSourceId);
   source.addFeature(pointFeature);
+}
+
+async function updateLayer() {
+  const vehicleFlowDangerZones = await calculateVehicleFlowDangerZones();
+
+  const newLayer = createVehicleFlowLayer(vehicleFlowDangerZones);
+  const newSource = newLayer.getSource();
+
+  const layer = olLayers.vehicleFlow;
+  layer.setSource(newSource);
 }
 
 async function closeSimulationPanel() {
@@ -172,6 +212,16 @@ function createEllipse(dangerZone) {
   return ellipseFeature;
 }
 
+function getColorWithAlpha(baseColor, alpha = 0.6) {
+  if (!baseColor) {
+    return [0, 0, 0, alpha];
+  }
+
+  return Array.isArray(baseColor)
+      ? [baseColor[0], baseColor[1], baseColor[2], alpha]
+      : asArray(baseColor).slice(0, 3).concat(alpha);
+}
+
 function createSingleLayer(dangerZones) {
   const singleSource = new VectorSource()
 
@@ -211,13 +261,10 @@ function createSingleLayer(dangerZones) {
     visible: true,
     style: feature => {
       const geom = feature.getGeometry();
-      const baseColor = feature.get('dangerColor') || [0, 0, 0];
-      const rgba = Array.isArray(baseColor)
-          ? [baseColor[0], baseColor[1], baseColor[2], 0.6]
-          : asArray(baseColor).slice(0, 3).concat(0.6);
+      const color = getColorWithAlpha(feature.get('dangerColor'), 0.6);
 
       if (geom.getType() === 'Polygon') {
-        ellipseStyle.getFill().setColor(rgba);
+        ellipseStyle.getFill().setColor(color);
         return ellipseStyle;
       }
 
@@ -245,7 +292,7 @@ function createVehicleFlowLayer(dangerZones) {
     lineFeature.set('dangerColor', dangerZone.color);
     vehicleFlowsSource.addFeature(lineFeature);
 
-    const startPoint = new Feature({
+    /*const startPoint = new Feature({
       geometry: new Point(start),
       type: 'start'
     });
@@ -257,19 +304,19 @@ function createVehicleFlowLayer(dangerZones) {
       type: 'end'
     });
     endPoint.set('dangerColor', dangerZone.color);
-    vehicleFlowsSource.addFeature(endPoint);
+    vehicleFlowsSource.addFeature(endPoint);*/
   });
 
   const lineStyle = new Style({
     stroke: new Stroke({
       color: 'black',
-      width: 3
+      width: 5
     })
   });
 
   const pointStyle = new Style({
     image: new CircleStyle({
-      radius: 5,
+      radius: 3,
       fill: new Fill({ color: 'black' })
     })
   });
@@ -279,7 +326,7 @@ function createVehicleFlowLayer(dangerZones) {
     visible: false,
     style: feature => {
       const geomType = feature.getGeometry().getType();
-      const color = feature.get('dangerColor') || 'black';
+      const color = getColorWithAlpha(feature.get('dangerColor'), 0.75);
 
       if (geomType === 'LineString') {
         lineStyle.getStroke().setColor(color);
@@ -320,9 +367,9 @@ function createLayers(singleDangerZones, vehicleFlowDangerZones) {
   const vehicleFlowLayer = createVehicleFlowLayer(vehicleFlowDangerZones);
   const vehicleQueueLayer = createVehicleQueueLayer();
 
-  olLayers.singles = singleLayer;
-  olLayers.vehicleFlows = vehicleFlowLayer;
-  olLayers.vehicleQueues = vehicleQueueLayer;
+  olLayers.single = singleLayer;
+  olLayers.vehicleFlow = vehicleFlowLayer;
+  olLayers.vehicleQueue = vehicleQueueLayer;
 
   return { singleLayer, vehicleFlowLayer, vehicleQueueLayer };
 }
@@ -380,6 +427,25 @@ onMounted(async () => {
         }
       }
     });
+
+    // --- ДОБАВЛЯЕМ БЛОК ДЛЯ РЕЖИМА СОЗДАНИЯ ---
+    if (createMode.value) {
+      const coord3857 = evt.coordinate
+      const [lon, lat] = toLonLat(coord3857)
+
+      createPoints.value.push([lon, lat])
+
+      if (createPoints.value.length === 2) {
+        const [p1, p2] = createPoints.value
+        await handleTwoPointsSelected(p1, p2)
+
+        createMode.value = false
+        createPoints.value = []
+      }
+
+      return
+    }
+    // --- КОНЕЦ БЛОКА ДЛЯ РЕЖИМА СОЗДАНИЯ ---
 
     if (showSimulationPanel.value && found == null) {
       await closeSimulationPanel();
@@ -445,15 +511,12 @@ const toggleLayer = (key) => {
   display: block;
 }
 
-.danger-info {
-  position: absolute;
-  bottom: 24px;
-  left: 24px;
-  background: #fff;
-  padding: 8px 12px;
-  border-radius: 4px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+.layer-panel .create-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 6px 8px;
   font-size: 14px;
+  cursor: pointer;
 }
 
 </style>
