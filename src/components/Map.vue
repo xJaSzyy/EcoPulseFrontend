@@ -36,6 +36,21 @@
         Создать точку
       </button>
     </div>
+
+    <div class="legend">
+      <div class="legend-title">Уровни загрязнения</div>
+      <div
+          v-for="level in levels"
+          :key="level.label"
+          class="legend-item"
+      >
+        <span
+            class="legend-color"
+            :style="{ backgroundColor: level.color }"
+        />
+        <span class="legend-label">{{ level.label }}</span>
+      </div>
+    </div>
   </div>
 
   <WeatherInfo
@@ -69,6 +84,8 @@ import VectorSource from 'ol/source/Vector'
 import {LineString, Point, Polygon} from 'ol/geom'
 import Feature from 'ol/Feature'
 import {Circle as CircleStyle, Fill, Icon, Stroke, Style} from 'ol/style'
+import {Text as TextStyle} from 'ol/style';
+import Modify from 'ol/interaction/Modify';
 
 import {
   calculateSingleDangerZones, calculateSingleDangerZone, calculateVehicleFlowDangerZones,
@@ -78,12 +95,13 @@ import {getCurrentWeather} from '../api/weather.js';
 import {
   addTrafficLightQueueEmissionSource,
   addVehicleFlowEmissionSource,
-  getSingleEmissionSourceById
+  getSingleEmissionSourceById, updateVehicleFlowEmissionSource
 } from '../api/emissionSource.js';
 import boilerIcon from '../icons/boiler.png';
 import WeatherInfo from "../components/WeatherInfo.vue";
 import SimulationPanel from '../components/SimulationPanel.vue'
 import {asArray} from "ol/color";
+import {altKeyOnly, singleClick} from 'ol/events/condition';
 
 const mapRoot = ref(null)
 const map = ref(null)
@@ -94,6 +112,7 @@ const simulationStartData = ref(null)
 const createModeFlow = ref(false)
 const createModeQueue = ref(false)
 const createPoints = ref([])
+const modifyFlow = ref(null);
 
 const olLayers = reactive({
   single: null,
@@ -102,10 +121,19 @@ const olLayers = reactive({
 })
 
 const layersState = reactive({
-  single: { visible: false },
-  vehicleFlow: { visible: false },
-  vehicleQueue: { visible: true }
+  single: {visible: false},
+  vehicleFlow: {visible: true},
+  vehicleQueue: {visible: false}
 })
+
+const levels = [
+  {max: 9.0, color: 'rgba(171, 209, 98, 1)', label: 'Очень низкий'},
+  {max: 35.4, color: 'rgba(248, 212, 97, 1)', label: 'Низкий'},
+  {max: 55.4, color: 'rgba(251, 153, 86, 1)', label: 'Средний'},
+  {max: 125.4, color: 'rgba(246, 104, 106, 1)', label: 'Высокий'},
+  {max: 225.4, color: 'rgba(164, 125, 184, 1)', label: 'Очень высокий'},
+  {max: 9999, color: 'rgba(138, 79, 163, 1)', label: 'Экстремальный'}
+]
 
 function startCreateModeFlow() {
   createModeFlow.value = true
@@ -118,14 +146,10 @@ function startCreateModeQueue() {
 
 async function handleTwoPointsSelected(p1, p2) {
   await addVehicleFlowEmissionSource({
-    startLocation: {
-      lon: p1[0],
-      lat: p1[1]
-    },
-    endLocation: {
-      lon: p2[0],
-      lat: p2[1]
-    },
+    points: [
+      { lon: p1[0], lat: p1[1] },
+      { lon: p2[0], lat: p2[1] },
+    ],
     vehicleType: 1,
     maxTrafficIntensity: 35,
     averageSpeed: 40,
@@ -177,12 +201,31 @@ async function buildSimulation(data) {
 async function updateVehicleFlowLayer() {
   const vehicleFlowDangerZones = await calculateVehicleFlowDangerZones();
 
-  const newLayer = createVehicleFlowLayer(vehicleFlowDangerZones);
-  const newSource = newLayer.getSource();
-
   const layer = olLayers.vehicleFlow;
-  layer.setSource(newSource);
+  if (!layer) return;
+
+  const source = layer.getSource();
+  if (!source) return;
+
+  source.clear();
+
+  vehicleFlowDangerZones.forEach(dz => {
+    const coords = dz.points.map(p => fromLonLat([p.lon, p.lat]));
+
+    const lineFeature = new Feature({
+      geometry: new LineString(coords),
+      type: 'flow'
+    });
+
+    lineFeature.set('dangerColor', dz.color);
+    lineFeature.set('emissionSourceId', dz.emissionSourceId);
+
+    source.addFeature(lineFeature);
+  });
+
+  layer.changed();
 }
+
 
 async function updateVehicleQueueLayer() {
   const vehicleQueueDangerZones = await calculateTrafficLightQueueDangerZones();
@@ -237,7 +280,7 @@ function createEllipse(dangerZone) {
   return ellipseFeature;
 }
 
-function getColorWithAlpha(baseColor, alpha = 0.65) {
+function getColorWithAlpha(baseColor, alpha = 0.75) {
   if (!baseColor) {
     return [0, 0, 0, alpha];
   }
@@ -279,6 +322,9 @@ function createSingleLayer(dangerZones) {
     fill: new Fill({
       color: 'black'
     }),
+    stroke: new Stroke({
+      color: 'rgba(0, 0, 0, 0.5)'
+    })
   });
 
   return new VectorLayer({
@@ -286,7 +332,7 @@ function createSingleLayer(dangerZones) {
     visible: false,
     style: feature => {
       const geom = feature.getGeometry();
-      const color = getColorWithAlpha(feature.get('dangerColor'));
+      const color = getColorWithAlpha(feature.get('dangerColor'), 0.6);
 
       if (geom.getType() === 'Polygon') {
         ellipseStyle.getFill().setColor(color);
@@ -306,35 +352,40 @@ function createSingleLayer(dangerZones) {
 function createVehicleFlowLayer(dangerZones) {
   const vehicleFlowSource = new VectorSource();
 
-  dangerZones.forEach(dangerZone => {
-    const start = fromLonLat([dangerZone.startLocation.lon, dangerZone.startLocation.lat]);
-    const end = fromLonLat([dangerZone.endLocation.lon, dangerZone.endLocation.lat]);
+  dangerZones.forEach(dz => {
+    const coords = dz.points.map(p => fromLonLat([p.lon, p.lat]));
 
     const lineFeature = new Feature({
-      geometry: new LineString([start, end]),
+      geometry: new LineString(coords),
       type: 'flow'
     });
-    lineFeature.set('dangerColor', dangerZone.color);
+    lineFeature.set('dangerColor', dz.color);
+    lineFeature.set('emissionSourceId', dz.emissionSourceId);
+
     vehicleFlowSource.addFeature(lineFeature);
   });
+
 
   const lineStyle = new Style({
     stroke: new Stroke({
       color: 'black',
-      width: 5
-    })
+      width: 5,
+    }),
   });
 
   const pointStyle = new Style({
     image: new CircleStyle({
       radius: 3,
-      fill: new Fill({ color: 'black' })
+      fill: new Fill({color: 'black'}),
+      stroke: new Stroke({
+        color: 'rgba(0, 0, 0, 0.5)',
+      })
     })
   });
 
   return new VectorLayer({
     source: vehicleFlowSource,
-    visible: false,
+    visible: true,
     style: feature => {
       const geomType = feature.getGeometry().getType();
       const color = getColorWithAlpha(feature.get('dangerColor'), 0.75);
@@ -358,10 +409,6 @@ function createVehicleQueueLayer(dangerZones) {
   const vehicleQueueSource = new VectorSource()
 
   dangerZones.forEach(dangerZone => {
-    const ellipse = createEllipse(dangerZone);
-    ellipse.set('emissionSourceId', dangerZone.emissionSourceId);
-    vehicleQueueSource.addFeature(ellipse);
-
     const pointFeature = new Feature({
       geometry: new Point(fromLonLat([dangerZone.location.lon, dangerZone.location.lat])),
       type: 'queue'
@@ -372,23 +419,31 @@ function createVehicleQueueLayer(dangerZones) {
     vehicleQueueSource.addFeature(pointFeature)
   })
 
-  const pointStyle = new Style({
-    image: new CircleStyle({
-      radius: 5,
-      fill: new Fill({ color: 'black' })
-    })
-  });
-
   return new VectorLayer({
     source: vehicleQueueSource,
-    visible: true,
+    visible: false,
     style: feature => {
       const geomType = feature.getGeometry().getType();
-      const color = getColorWithAlpha(feature.get('dangerColor'), 0.9);
+      const color = getColorWithAlpha(feature.get('dangerColor'), 0.75);
+      const emissionSourceId = feature.get('emissionSourceId');
 
       if (geomType === 'Point') {
-        pointStyle.getImage().getFill().setColor(color);
-        return pointStyle;
+        return new Style({
+          image: new CircleStyle({
+            radius: 5,
+            fill: new Fill({color: color}),
+            stroke: new Stroke({
+              color: 'rgba(0, 0, 0, 0.5)',
+            })
+          }),
+          /*text: new TextStyle({
+            text: emissionSourceId,
+            font: '12px Arial, sans-serif',
+            fill: new Fill({ color: '#000000' }),
+            offsetY: 0,
+            overflow: true
+          })*/
+        });
       }
 
       return null;
@@ -405,7 +460,7 @@ function createLayers(singleDangerZones, vehicleFlowDangerZones, vehicleQueueDan
   olLayers.vehicleFlow = vehicleFlowLayer;
   olLayers.vehicleQueue = vehicleQueueLayer;
 
-  return { singleLayer, vehicleFlowLayer, vehicleQueueLayer };
+  return {singleLayer, vehicleFlowLayer, vehicleQueueLayer};
 }
 
 onMounted(async () => {
@@ -464,7 +519,6 @@ onMounted(async () => {
       }
     });
 
-    // --- ДОБАВЛЯЕМ БЛОК ДЛЯ РЕЖИМА СОЗДАНИЯ ---
     if (createModeFlow.value) {
       const coord3857 = evt.coordinate
       const [lon, lat] = toLonLat(coord3857)
@@ -503,12 +557,10 @@ onMounted(async () => {
 
       return
     }
-    // --- КОНЕЦ БЛОКА ДЛЯ РЕЖИМА СОЗДАНИЯ ---
 
     if (showSimulationPanel.value && found == null) {
       await closeSimulationPanel();
-    }
-    else if (found != null) {
+    } else if (found != null) {
       if (simulationStartData.value != null) {
         await closeSimulationPanel();
       }
@@ -533,16 +585,47 @@ onMounted(async () => {
       }
     }
   });
+
+  const mf = new Modify({
+    source: vehicleFlowLayer.getSource(),
+    filter: feature => feature.getGeometry().getType() === 'LineString',
+  });
+
+  mf.on('modifyend', async evt => {
+    const feature = evt.features.item(0);
+    if (!feature) return;
+
+    const geom = feature.getGeometry();
+    const coords = geom.getCoordinates();
+
+    const emissionSourceId = feature.get('emissionSourceId');
+    const points = coords.map(c => {
+      const [lon, lat] = toLonLat(c);
+      return { lon, lat };
+    });
+
+    await updateVehicleFlowEmissionSource({ id: emissionSourceId, points: points });
+    await updateVehicleFlowLayer();
+  });
+
+  map.value.addInteraction(mf);
+  modifyFlow.value = mf;
 })
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-const toggleLayer = (key) => {
-  if (!olLayers[key]) return
-  olLayers[key].setVisible(layersState[key].visible)
-}
+const toggleLayer = key => {
+  if (!olLayers[key]) return;
+
+  const visible = layersState[key].visible;
+  olLayers[key].setVisible(visible);
+
+  if (key === 'vehicleFlow' && modifyFlow.value) {
+    modifyFlow.value.setActive(visible);
+  }
+};
 </script>
 
 <style>
@@ -565,10 +648,12 @@ const toggleLayer = (key) => {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   font-size: 14px;
 }
+
 .layer-panel h3 {
   margin: 0 0 4px;
   font-size: 14px;
 }
+
 .layer-panel label {
   display: block;
 }
@@ -579,6 +664,37 @@ const toggleLayer = (key) => {
   padding: 6px 8px;
   font-size: 14px;
   cursor: pointer;
+}
+
+.legend {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 8px 10px;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  font-size: 12px;
+  z-index: 10;
+}
+
+.legend-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin: 2px 0;
+}
+
+.legend-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  margin-right: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
 }
 
 </style>
