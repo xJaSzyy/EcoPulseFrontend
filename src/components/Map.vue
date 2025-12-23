@@ -39,16 +39,28 @@
 
     <div class="legend">
       <div class="legend-title">Уровни загрязнения</div>
+
       <div
           v-for="level in levels"
           :key="level.label"
           class="legend-item"
+          @click="showInfo = true"
       >
-        <span
-            class="legend-color"
-            :style="{ backgroundColor: level.color }"
-        />
+    <span
+        class="legend-color"
+        :style="{ backgroundColor: level.color }"
+    />
         <span class="legend-label">{{ level.label }}</span>
+      </div>
+
+      <div
+          v-if="showInfo"
+          class="legend-popup"
+          @click.self="showInfo = false"
+      >
+        <div class="legend-popup-content">
+          <img src="../assets/info.png" alt="Фото загрязнения" />
+        </div>
       </div>
     </div>
   </div>
@@ -113,6 +125,7 @@ const createModeFlow = ref(false)
 const createModeQueue = ref(false)
 const createPoints = ref([])
 const modifyFlow = ref(null);
+const showInfo = ref(false);
 
 const olLayers = reactive({
   single: null,
@@ -225,7 +238,6 @@ async function updateVehicleFlowLayer() {
 
   layer.changed();
 }
-
 
 async function updateVehicleQueueLayer() {
   const vehicleQueueDangerZones = await calculateTrafficLightQueueDangerZones();
@@ -687,6 +699,7 @@ const toggleLayer = key => {
   display: flex;
   align-items: center;
   margin: 2px 0;
+  cursor: pointer;
 }
 
 .legend-color {
@@ -697,4 +710,31 @@ const toggleLayer = key => {
   border: 1px solid rgba(0, 0, 0, 0.2);
 }
 
+.legend-popup {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.legend-popup-content {
+  background: #fff;
+  padding: 12px 16px;
+  border-radius: 4px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  max-width: 80vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.legend-popup-content img {
+  max-width: 100%;
+  max-height: 70vh;
+  display: block;
+}
 </style>
