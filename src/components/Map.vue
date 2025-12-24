@@ -96,7 +96,6 @@ import VectorSource from 'ol/source/Vector'
 import {LineString, Point, Polygon} from 'ol/geom'
 import Feature from 'ol/Feature'
 import {Circle as CircleStyle, Fill, Icon, Stroke, Style} from 'ol/style'
-import {Text as TextStyle} from 'ol/style';
 import Modify from 'ol/interaction/Modify';
 
 import {
@@ -437,7 +436,6 @@ function createVehicleQueueLayer(dangerZones) {
     style: feature => {
       const geomType = feature.getGeometry().getType();
       const color = getColorWithAlpha(feature.get('dangerColor'), 0.75);
-      const emissionSourceId = feature.get('emissionSourceId');
 
       if (geomType === 'Point') {
         return new Style({
@@ -448,13 +446,6 @@ function createVehicleQueueLayer(dangerZones) {
               color: 'rgba(0, 0, 0, 0.5)',
             })
           }),
-          /*text: new TextStyle({
-            text: emissionSourceId,
-            font: '12px Arial, sans-serif',
-            fill: new Fill({ color: '#000000' }),
-            offsetY: 0,
-            overflow: true
-          })*/
         });
       }
 
@@ -601,6 +592,7 @@ onMounted(async () => {
   const mf = new Modify({
     source: vehicleFlowLayer.getSource(),
     filter: feature => feature.getGeometry().getType() === 'LineString',
+    deleteCondition: event => altKeyOnly(event) && singleClick(event),
   });
 
   mf.on('modifyend', async evt => {
@@ -617,8 +609,10 @@ onMounted(async () => {
     });
 
     await updateVehicleFlowEmissionSource({ id: emissionSourceId, points: points });
-    await updateVehicleFlowLayer();
+
+    feature.changed();
   });
+
 
   map.value.addInteraction(mf);
   modifyFlow.value = mf;
