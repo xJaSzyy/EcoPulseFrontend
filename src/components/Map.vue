@@ -38,12 +38,9 @@
     </div>
 
     <div class="city-select">
-  <span
-      class="city-select__label"
-      @click="toggleCityDropdown"
-  >
-    {{ selectedCities.length ? selectedCities.map(c => c.name).join(', ') : 'Выберите города' }}
-  </span>
+      <span class="city-select__label" @click="toggleCityDropdown">
+        {{ selectedCities.length ? selectedCities.map(c => c.name).join(', ') : 'Выберите города' }}
+      </span>
 
       <div
           v-if="cityDropdownOpen"
@@ -141,6 +138,7 @@ import SimulationPanel from '../components/SimulationPanel.vue'
 import {asArray} from "ol/color";
 import {altKeyOnly, singleClick} from 'ol/events/condition';
 import Text from 'ol/style/Text.js';
+import {getCityById} from "../api/city.js";
 
 const mapRoot = ref(null)
 const map = ref(null)
@@ -182,12 +180,19 @@ const cities = ref([
   {id: 4, name: 'Киселевск'},
 ])
 
-const selectedCities = ref([cities.value[0]])
+const selectedCities = ref(JSON.parse(localStorage.getItem("selectedCities") || 'null') ?? [cities.value[0]])
 const cityDropdownOpen = ref(false)
 
 const toggleCityDropdown = async () => {
   if (cityDropdownOpen.value) {
     await updateLayers()
+    localStorage.setItem("selectedCities", JSON.stringify(selectedCities.value))
+
+    if (selectedCities.value.length === 1) {
+      const selectedCity = await getCityById(selectedCities.value[0].id)
+      const view = map.value.getView()
+      view.setCenter(fromLonLat([selectedCity.location.lat, selectedCity.location.lon]))
+    }
   }
 
   cityDropdownOpen.value = !cityDropdownOpen.value;
@@ -494,7 +499,7 @@ function createVehicleFlowLayer(dangerZones) {
   const lineStyle = new Style({
     stroke: new Stroke({
       color: 'black',
-      width: 5,
+      width: 10,
     }),
   });
 
@@ -619,11 +624,17 @@ onMounted(async () => {
     vehicleQueueLayer
   } = createLayers(singleDangerZones, vehicleFlowDangerZones, vehicleQueueDangerZones);
 
+  let coords = [86.0833, 55.3333]
+  if (selectedCities.value.length > 0) {
+    const selectedCity = await getCityById(selectedCities.value[0].id)
+    coords = [selectedCity.location.lat, selectedCity.location.lon]
+  }
+
   map.value = new Map({
     target: mapRoot.value,
     layers: [baseLayer, singleLayer, vehicleFlowLayer, vehicleQueueLayer],
     view: new View({
-      center: fromLonLat([86.0833, 55.3333]),
+      center: fromLonLat(coords),
       zoom: 12
     }),
     controls: defaultControls({
