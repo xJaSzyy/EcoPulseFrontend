@@ -37,6 +37,33 @@
       </button>
     </div>
 
+    <div class="city-select">
+  <span
+      class="city-select__label"
+      @click="toggleCityDropdown"
+  >
+    {{ selectedCities.length ? selectedCities.map(c => c.name).join(', ') : 'Выберите города' }}
+  </span>
+
+      <div
+          v-if="cityDropdownOpen"
+          class="city-select-dropdown"
+      >
+        <label
+            v-for="city in cities"
+            :key="city.id"
+            class="city-select-dropdown__item"
+        >
+          <input
+              type="checkbox"
+              :value="city"
+              v-model="selectedCities"
+          />
+          <span>{{ city.name }}</span>
+        </label>
+      </div>
+    </div>
+
     <div class="legend">
       <div class="legend-title">Уровни загрязнения</div>
 
@@ -59,7 +86,7 @@
           @click.self="showInfo = false"
       >
         <div class="legend-popup-content">
-          <img src="../assets/info.png" alt="Фото загрязнения" />
+          <img src="../assets/info.png" alt="Фото загрязнения"/>
         </div>
       </div>
     </div>
@@ -113,6 +140,7 @@ import WeatherInfo from "../components/WeatherInfo.vue";
 import SimulationPanel from '../components/SimulationPanel.vue'
 import {asArray} from "ol/color";
 import {altKeyOnly, singleClick} from 'ol/events/condition';
+import Text from 'ol/style/Text.js';
 
 const mapRoot = ref(null)
 const map = ref(null)
@@ -147,6 +175,24 @@ const levels = [
   {max: 9999, color: 'rgba(138, 79, 163, 1)', label: 'Экстремальный'}
 ]
 
+const cities = ref([
+  {id: 1, name: 'Кемерово'},
+  {id: 2, name: 'Новокузнецк'},
+  {id: 3, name: 'Прокопьевск'},
+  {id: 4, name: 'Киселевск'},
+])
+
+const selectedCities = ref([cities.value[0]])
+const cityDropdownOpen = ref(false)
+
+const toggleCityDropdown = async () => {
+  if (cityDropdownOpen.value) {
+    await updateLayers()
+  }
+
+  cityDropdownOpen.value = !cityDropdownOpen.value;
+}
+
 function startCreateModeFlow() {
   createModeFlow.value = true
   createPoints.value = []
@@ -157,14 +203,19 @@ function startCreateModeQueue() {
 }
 
 async function handleTwoPointsSelected(p1, p2) {
+  const selectedCityId = selectedCities.value.length > 0
+      ? selectedCities.value[0].id
+      : null;
+
   await addVehicleFlowEmissionSource({
+    cityId: selectedCityId,
     points: [
-      { lon: p1[0], lat: p1[1] },
-      { lon: p2[0], lat: p2[1] },
+      {lon: p1[0], lat: p1[1]},
+      {lon: p2[0], lat: p2[1]},
     ],
     vehicleType: 1,
-    maxTrafficIntensity: 35,
-    averageSpeed: 40,
+    maxTrafficIntensity: 35 / 2,
+    averageSpeed: 40 / 2,
   });
 
   await updateVehicleFlowLayer();
@@ -210,8 +261,47 @@ async function buildSimulation(data) {
   source.addFeature(pointFeature);
 }
 
+async function updateSingleLayer() {
+  const singleDangerZones = await calculateSingleDangerZones({
+    pollutant: 2, // solid particles
+    airTemp: weather.value.temperature,
+    windSpeed: weather.value.windSpeed,
+    windDirection: weather.value.windDirection,
+    cityIds: selectedCities.value.map(c => c.id)
+  });
+
+  const layer = olLayers.single;
+  if (!layer) return;
+
+  const source = layer.getSource();
+  if (!source) return;
+
+  source.clear();
+
+  singleDangerZones.forEach(dangerZone => {
+    const ellipse = createEllipse(dangerZone);
+    ellipse.set('emissionSourceId', dangerZone.emissionSourceId);
+    source.addFeature(ellipse);
+
+    const pointFeature = new Feature({
+      geometry: new Point(fromLonLat([dangerZone.lon, dangerZone.lat])),
+      type: 'boiler'
+    })
+    pointFeature.set('dangerColor', dangerZone.color);
+    pointFeature.set('emissionSourceId', dangerZone.emissionSourceId);
+
+    source.addFeature(pointFeature);
+  })
+
+  layer.changed();
+
+  updateModifyFlow()
+}
+
 async function updateVehicleFlowLayer() {
-  const vehicleFlowDangerZones = await calculateVehicleFlowDangerZones();
+  const vehicleFlowDangerZones = await calculateVehicleFlowDangerZones({
+    cityIds: selectedCities.value.map(c => c.id)
+  });
 
   const layer = olLayers.vehicleFlow;
   if (!layer) return;
@@ -236,16 +326,41 @@ async function updateVehicleFlowLayer() {
   });
 
   layer.changed();
+
+  updateModifyFlow()
 }
 
 async function updateVehicleQueueLayer() {
-  const vehicleQueueDangerZones = await calculateTrafficLightQueueDangerZones();
-
-  const newLayer = createVehicleQueueLayer(vehicleQueueDangerZones);
-  const newSource = newLayer.getSource();
+  const vehicleQueueDangerZones = await calculateTrafficLightQueueDangerZones({
+    cityIds: selectedCities.value.map(c => c.id)
+  });
 
   const layer = olLayers.vehicleQueue;
-  layer.setSource(newSource);
+  if (!layer) return;
+
+  const source = layer.getSource();
+  if (!source) return;
+
+  source.clear();
+
+  vehicleQueueDangerZones.forEach(dangerZone => {
+    const pointFeature = new Feature({
+      geometry: new Point(fromLonLat([dangerZone.location.lon, dangerZone.location.lat])),
+      type: 'queue'
+    })
+    pointFeature.set('dangerColor', dangerZone.color);
+    pointFeature.set('emissionSourceId', dangerZone.emissionSourceId);
+
+    source.addFeature(pointFeature)
+  })
+
+  layer.changed();
+}
+
+async function updateLayers() {
+  await updateSingleLayer();
+  await updateVehicleFlowLayer()
+  await updateVehicleQueueLayer()
 }
 
 async function closeSimulationPanel() {
@@ -376,11 +491,10 @@ function createVehicleFlowLayer(dangerZones) {
     vehicleFlowSource.addFeature(lineFeature);
   });
 
-
   const lineStyle = new Style({
     stroke: new Stroke({
       color: 'black',
-      width: 5,
+      width: 10,
     }),
   });
 
@@ -479,16 +593,23 @@ onMounted(async () => {
     windDirection: currentWeather.windDirection,
   }
 
+  await updateLayers()
+
   const singleDangerZones = await calculateSingleDangerZones({
     pollutant: 2, // solid particles
     airTemp: currentWeather.temperature,
     windSpeed: currentWeather.windSpeed,
-    windDirection: currentWeather.windDirection
+    windDirection: currentWeather.windDirection,
+    cityIds: selectedCities.value.map(c => c.id)
   });
 
-  const vehicleFlowDangerZones = await calculateVehicleFlowDangerZones();
+  const vehicleFlowDangerZones = await calculateVehicleFlowDangerZones({
+    cityIds: selectedCities.value.map(c => c.id)
+  });
 
-  const vehicleQueueDangerZones = await calculateTrafficLightQueueDangerZones();
+  const vehicleQueueDangerZones = await calculateTrafficLightQueueDangerZones({
+    cityIds: selectedCities.value.map(c => c.id)
+  });
 
   const {
     singleLayer,
@@ -589,8 +710,16 @@ onMounted(async () => {
     }
   });
 
+  updateModifyFlow()
+})
+
+function updateModifyFlow() {
+  if (modifyFlow.value) {
+    map.value.removeInteraction(modifyFlow.value);
+  }
+
   const mf = new Modify({
-    source: vehicleFlowLayer.getSource(),
+    source: olLayers.vehicleFlow.getSource(),
     filter: feature => feature.getGeometry().getType() === 'LineString',
     deleteCondition: event => altKeyOnly(event) && singleClick(event),
   });
@@ -605,18 +734,19 @@ onMounted(async () => {
     const emissionSourceId = feature.get('emissionSourceId');
     const points = coords.map(c => {
       const [lon, lat] = toLonLat(c);
-      return { lon, lat };
+      return {lon, lat};
     });
 
-    await updateVehicleFlowEmissionSource({ id: emissionSourceId, points: points });
+    await updateVehicleFlowEmissionSource({id: emissionSourceId, points: points});
 
     feature.changed();
   });
 
-
   map.value.addInteraction(mf);
   modifyFlow.value = mf;
-})
+
+  modifyFlow.value.setActive(layersState.vehicleFlow.visible);
+}
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -731,4 +861,45 @@ const toggleLayer = key => {
   max-height: 70vh;
   display: block;
 }
+
+.city-select {
+  position: absolute;
+  top: 24px;
+  left: 288px;
+  font-family: sans-serif;
+  font-size: 14px;
+}
+
+.city-select__label {
+  display: inline-block;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.city-select-dropdown {
+  position: absolute;
+  margin-top: 4px;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.city-select-dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.city-select-dropdown__item input[type="checkbox"] {
+  margin: 0;
+}
+
+
 </style>

@@ -21,10 +21,10 @@ import arrowIcon from "../icons/arrow.png";
 export default {
   name: "WeatherInfo",
   props: {
-    temperature: { type: Number, required: true },
-    iconClass: { type: String, required: true },
-    windSpeed: { type: Number, required: true },
-    windDirection: { type: Number, required: true },
+    temperature: {type: Number, required: true},
+    iconClass: {type: String, required: true},
+    windSpeed: {type: Number, required: true},
+    windDirection: {type: Number, required: true},
   },
   data() {
     return {

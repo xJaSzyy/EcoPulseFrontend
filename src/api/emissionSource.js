@@ -2,10 +2,8 @@ import {API_BASE_URL} from "./config.js";
 
 export async function getSingleEmissionSourceById(id) {
     const response = await fetch(API_BASE_URL + '/emission-source/single/' + id, {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
+        method: 'GET', headers: {
+            'Content-Type': 'application/json', 'Accept': 'application/json'
         }
     });
 
@@ -19,12 +17,9 @@ export async function getSingleEmissionSourceById(id) {
 
 export async function addVehicleFlowEmissionSource(payload) {
     const response = await fetch(API_BASE_URL + '/emission-source/vehicle-flow', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        method: 'POST', headers: {
+            'Content-Type': 'application/json', 'Accept': 'application/json'
+        }, body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
@@ -37,12 +32,9 @@ export async function addVehicleFlowEmissionSource(payload) {
 
 export async function addTrafficLightQueueEmissionSource(payload) {
     const response = await fetch(API_BASE_URL + '/emission-source/traffic-light-queue', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        method: 'POST', headers: {
+            'Content-Type': 'application/json', 'Accept': 'application/json'
+        }, body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
@@ -55,12 +47,9 @@ export async function addTrafficLightQueueEmissionSource(payload) {
 
 export async function updateVehicleFlowEmissionSource(payload) {
     const response = await fetch(API_BASE_URL + '/emission-source/vehicle-flow', {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        method: 'PUT', headers: {
+            'Content-Type': 'application/json', 'Accept': 'application/json'
+        }, body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
