@@ -456,6 +456,7 @@ function createSingleLayer(dangerZones) {
   return new VectorLayer({
     source: singleSource,
     visible: false,
+    zIndex: 3,
     style: feature => {
       const geom = feature.getGeometry();
       const color = getColorWithAlpha(feature.get('dangerColor'), 0.6);
@@ -471,7 +472,6 @@ function createSingleLayer(dangerZones) {
 
       return null;
     }
-
   });
 }
 
@@ -494,7 +494,7 @@ function createVehicleFlowLayer(dangerZones) {
   const lineStyle = new Style({
     stroke: new Stroke({
       color: 'black',
-      width: 10,
+      width: 5,
     }),
   });
 
@@ -511,6 +511,7 @@ function createVehicleFlowLayer(dangerZones) {
   return new VectorLayer({
     source: vehicleFlowSource,
     visible: true,
+    zIndex: 1,
     style: feature => {
       const geomType = feature.getGeometry().getType();
       const color = getColorWithAlpha(feature.get('dangerColor'), 0.75);
@@ -547,6 +548,7 @@ function createVehicleQueueLayer(dangerZones) {
   return new VectorLayer({
     source: vehicleQueueSource,
     visible: false,
+    zIndex: 2,
     style: feature => {
       const geomType = feature.getGeometry().getType();
       const color = getColorWithAlpha(feature.get('dangerColor'), 0.75);
